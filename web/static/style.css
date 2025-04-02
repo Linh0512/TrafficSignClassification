@@ -1,0 +1,38 @@
+.webcam-video {
+    width: 100%;
+    height: auto;
+    max-width: 640px;
+    border: 1px solid #ddd;
+}
+
+#detection-results, #webcam-detection-results {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.detection-item {
+    border-bottom: 1px solid #eee;
+    padding: 10px 0;
+}
+
+.detection-item:last-child {
+    border-bottom: none;
+}
+
+.confidence-badge {
+    float: right;
+}
+
+#image-placeholder {
+    border: 2px dashed #ccc;
+    padding: 20px;
+    border-radius: 5px;
+}
+
+.detected-sign {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+} 

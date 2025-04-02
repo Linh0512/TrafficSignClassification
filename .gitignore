@@ -1,0 +1,46 @@
+# Ignore Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Ignore environment directories
+venv/
+env/
+ENV/
+
+# Ignore dataset (quá lớn để đẩy lên GitHub)
+dataset/
+data/dataset/train/
+data/dataset/valid/
+data/dataset/test/
+
+# Ignore large model files but keep directory structure
+*.pt
+!models/download_weights.py
+
+# Keep empty directories
+!models/.gitkeep
+!results/.gitkeep
+!runs/.gitkeep
+!visualizations/.gitkeep
+
+# Ignore all log files
+*.log
+
+# Ignore OS specific files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Pytorch Lightning logs
+lightning_logs/ 
