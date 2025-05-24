@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('--batch-size', type=int, default=16, help='Kích thước batch')
     parser.add_argument('--img-size', type=int, default=640, help='Kích thước ảnh đầu vào')
     parser.add_argument('--device', type=str, default='', help='cuda device (0, 1, ...) hoặc cpu')
-    parser.add_argument('--project', type=str, default=os.path.join(root_dir, 'runs/train'), help='Thư mục lưu kết quả')
+    parser.add_argument('--project', type=str, default=os.path.join(root_dir, 'outputs/runs/train'), help='Thư mục lưu kết quả')
     parser.add_argument('--name', type=str, default='traffic_sign_detection_yolo12', help='Tên thử nghiệm')
     parser.add_argument('--data', type=str, default=os.path.join(root_dir, 'data/data.yaml'), 
                       help='File dữ liệu yaml')

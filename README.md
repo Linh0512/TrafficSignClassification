@@ -120,20 +120,6 @@ pip install -r requirements.txt
 python app.py
 ```
 
-## 📝 Thay đổi cấu trúc
-
-Dự án đã được tái cấu trúc để:
-- ✅ Gộp các thư mục kết quả vào `outputs/`
-- ✅ Thống nhất dataset trong `data/`
-- ✅ Chỉ giữ models YOLOv12 cần thiết
-- ✅ Xóa cache và file tạm thời
-- ✅ Cập nhật đường dẫn trong source code
-- ✅ Tối ưu .gitignore
-
-## 🤝 Đóng góp
-
-Mọi đóng góp đều được chào đón! Hãy tạo issue hoặc pull request.
-
 ## 📄 License
 
 MIT License

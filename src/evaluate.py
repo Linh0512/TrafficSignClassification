@@ -31,26 +31,34 @@ def parse_args():
     parser.add_argument('--save-conf', action='store_true', help='Lưu ngưỡng tin cậy cùng với dự đoán')
     parser.add_argument('--visualize', action='store_true', help='Hiển thị một số kết quả nhận diện')
     parser.add_argument('--num-samples', type=int, default=10, help='Số mẫu để hiển thị khi visualize=True')
-    parser.add_argument('--output', type=str, default=os.path.join(root_dir, 'results/evaluation'), help='Thư mục lưu kết quả đánh giá')
+    parser.add_argument('--output', type=str, default=os.path.join(root_dir, 'outputs/results/evaluation'), help='Thư mục lưu kết quả đánh giá')
     
     args = parser.parse_args()
     return args
 
 def load_classes(data_yaml):
     """Tải danh sách lớp từ file yaml"""
-    with open(data_yaml, 'r') as f:
+    with open(data_yaml, 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
     return data['names']
 
-def validate(args):
+def evaluate(args):
     """Đánh giá mô hình YOLOv12"""
     # Kiểm tra đầu vào
     if not os.path.exists(args.model):
         print(f"Lỗi: Không tìm thấy model tại {args.model}")
         return
     
+    # Xử lý output path - sử dụng project nếu không có output
+    if hasattr(args, 'output') and args.output:
+        output_dir = args.output
+    elif hasattr(args, 'project') and args.project:
+        output_dir = os.path.join(args.project, 'evaluation')
+    else:
+        output_dir = os.path.join(root_dir, 'outputs/runs/evaluation')
+    
     # Tạo thư mục đầu ra
-    os.makedirs(args.output, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     
     # Tải classes
     class_names = load_classes(args.data)
@@ -70,20 +78,28 @@ def validate(args):
         print(f"Lỗi khi tải model: {e}")
         return
     
+    # Xử lý các tham số từ main.py
+    conf = getattr(args, 'conf', getattr(args, 'conf_thres', 0.25))
+    iou = getattr(args, 'iou', getattr(args, 'iou_thres', 0.7))
+    img_size = getattr(args, 'img_size', getattr(args, 'img_size', 640))
+    batch_size = getattr(args, 'batch_size', getattr(args, 'batch_size', 16))
+    save_txt = getattr(args, 'save_txt', False)
+    save_conf = getattr(args, 'save_conf', False)
+    
     # Thực hiện đánh giá
     try:
         print(f"Đánh giá model trên tập dữ liệu {args.data}")
         metrics = model.val(
             data=args.data,
-            conf=args.conf,
-            iou=args.iou,
-            imgsz=args.img_size,
-            batch=args.batch_size,
+            conf=conf,
+            iou=iou,
+            imgsz=img_size,
+            batch=batch_size,
             device=device,
-            save_txt=args.save_txt,
-            save_conf=args.save_conf,
+            save_txt=save_txt,
+            save_conf=save_conf,
             save_json=True,  # Lưu kết quả dạng COCO format để phân tích
-            project=args.output,
+            project=output_dir,
             name='val',
             exist_ok=True,
             verbose=True
@@ -98,10 +114,10 @@ def validate(args):
         print(f"Recall: {metrics.box.mr:.4f}")
         
         # Phân tích thêm và trực quan kết quả
-        visualize_results(model, args, class_names)
+        visualize_results(model, args, class_names, output_dir, conf, iou)
         
         # Lưu kết quả thành báo cáo
-        save_report(metrics, class_names, args.output)
+        save_report(metrics, class_names, output_dir)
         
         return metrics
         
@@ -109,13 +125,16 @@ def validate(args):
         print(f"Lỗi khi đánh giá model: {e}")
         return None
 
-def visualize_results(model, args, class_names):
+# Alias để tương thích ngược
+validate = evaluate
+
+def visualize_results(model, args, class_names, output_dir, conf, iou):
     """Hiển thị và trực quan hóa một số kết quả"""
-    if not args.visualize:
+    if not hasattr(args, 'visualize') or not args.visualize:
         return
     
     # Tải dữ liệu từ file YAML
-    with open(args.data, 'r') as f:
+    with open(args.data, 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
     
     test_path = data['test']
@@ -156,8 +175,8 @@ def visualize_results(model, args, class_names):
         # Dự đoán với model
         results = model.predict(
             source=image_path,
-            conf=args.conf,
-            iou=args.iou,
+            conf=conf,
+            iou=iou,
             device=args.device,
             verbose=False
         )[0]
@@ -175,7 +194,7 @@ def visualize_results(model, args, class_names):
         axes[i, 1].axis("off")
     
     plt.tight_layout()
-    viz_path = os.path.join(args.output, 'sample_predictions.png')
+    viz_path = os.path.join(output_dir, 'sample_predictions.png')
     plt.savefig(viz_path)
     plt.close()
     
@@ -214,7 +233,7 @@ def save_report(metrics, class_names, output_dir):
 def main():
     """Hàm chính"""
     args = parse_args()
-    validate(args)
+    evaluate(args)
 
 if __name__ == "__main__":
     main() 

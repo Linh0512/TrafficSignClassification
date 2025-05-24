@@ -29,6 +29,12 @@ def parse_args():
     parser.add_argument("--name", type=str, default="exp", help="Tên thư mục con lưu kết quả")
     parser.add_argument("--save_txt", action="store_true", help="Lưu kết quả dạng .txt")
     parser.add_argument("--save_conf", action="store_true", help="Lưu điểm tin cậy với kết quả")
+    
+    # Tham số cho evaluate mode
+    parser.add_argument("--visualize", action="store_true", help="Hiển thị một số kết quả nhận diện (cho evaluate)")
+    parser.add_argument("--num_samples", type=int, default=10, help="Số mẫu để hiển thị khi visualize=True")
+    parser.add_argument("--output", type=str, help="Thư mục lưu kết quả đánh giá")
+    
     args = parser.parse_args()
     
     return args

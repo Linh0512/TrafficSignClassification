@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument('--save-txt', action='store_true', help='Lưu kết quả nhận diện dưới dạng văn bản')
     parser.add_argument('--save-conf', action='store_true', help='Lưu ngưỡng tin cậy cùng với dự đoán')
     parser.add_argument('--view-img', action='store_true', help='Hiển thị ảnh kết quả')
-    parser.add_argument('--output', type=str, default=os.path.join(root_dir, 'results'), help='Thư mục lưu kết quả')
+    parser.add_argument('--output', type=str, default=os.path.join(root_dir, 'outputs/results'), help='Thư mục lưu kết quả')
     
     args = parser.parse_args()
     
