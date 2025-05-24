@@ -167,41 +167,43 @@ manager = ConnectionManager()
 class ModelManager:
     def __init__(self):
         self.model = None
-        # Đường dẫn mặc định đến model YOLOv12 đã train
-        self.model_path = os.path.join(root_dir, "models", "best_yolo12.pt")
-        # Đường dẫn dự phòng nếu không tìm thấy model đã train
-        self.backup_model_path = os.path.join(root_dir, "models", "yolo12n.pt")
+        # Đường dẫn cho Vercel deployment
+        current_dir = os.path.dirname(os.path.abspath(__file__))
         
+        # Thử các đường dẫn có thể có trên Vercel
+        possible_paths = [
+            os.path.join(current_dir, "best_yolo12.pt"),
+            os.path.join(current_dir, "models", "best_yolo12.pt"),
+            os.path.join(current_dir, "best.pt"),
+            "best_yolo12.pt",  # Trong cùng thư mục web
+            "yolo12n.pt"       # Model mặc định
+        ]
+        
+        self.model_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                self.model_path = path
+                break
+
     def load_model(self):
         if self.model is None:
             try:
-                # Đầu tiên, tìm model YOLOv12 đã train
-                if os.path.exists(self.model_path):
+                if self.model_path:
                     self.model = YOLO(self.model_path)
                     logger.info(f"Model loaded from {self.model_path}")
-                # Nếu không tìm thấy, tìm trong thư mục models với model pretrained YOLOv12
-                elif os.path.exists(self.backup_model_path):
-                    self.model = YOLO(self.backup_model_path)
-                    logger.info(f"Model loaded from {self.backup_model_path}")
-                # Nếu không tìm thấy, tìm trong thư mục hiện tại
-                elif os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "best.pt")):
-                    self.model = YOLO(os.path.join(os.path.dirname(os.path.abspath(__file__)), "best.pt"))
-                    logger.info("Model loaded from current directory")
-                # Nếu không tìm thấy, dùng model mặc định yolo12n.pt
                 else:
+                    # Dùng model mặc định từ Ultralytics Hub
                     self.model = YOLO("yolo12n.pt")
-                    logger.info("Using default YOLOv12n model")
+                    logger.info("Using default YOLOv12n model from Ultralytics")
             except Exception as e:
                 logger.error(f"Error loading model: {e}")
-                # Dùng model mặc định nếu có lỗi
                 try:
-                    self.model = YOLO("yolo12n.pt")
-                    logger.info("Using default YOLOv12n model due to error")
-                except Exception as e2:
-                    logger.error(f"Error loading default YOLOv12n model: {e2}")
-                    # Nếu vẫn lỗi, thử với YOLOv8n
+                    # Fallback to YOLOv8n if YOLOv12 not available
                     self.model = YOLO("yolov8n.pt")
                     logger.info("Using YOLOv8n model as fallback")
+                except Exception as e2:
+                    logger.error(f"Error loading fallback model: {e2}")
+                    raise Exception("Unable to load any YOLO model")
         return self.model
 
 # Khởi tạo quản lý mô hình và tải model ngay khi khởi tạo
