@@ -1,5 +1,20 @@
 # Entry point cho Vercel
-from app import app
+from http.server import BaseHTTPRequestHandler
+import json
 
-# Export cho Vercel
-handler = app 
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        
+        response = {
+            "message": "Hello from root index.py!",
+            "status": "working",
+            "path": self.path,
+            "method": self.command
+        }
+        
+        self.wfile.write(json.dumps(response).encode())
+        return 
