@@ -10,8 +10,12 @@ from app import app
 
 # Export app cho Vercel
 # Vercel sẽ tìm kiếm biến 'app' hoặc hàm 'handler'
-handler = app
-application = app
+def handler(request):
+    return {
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json'},
+        'body': '{"message": "Hello from Vercel!", "status": "working"}'
+    }
 
 # Đảm bảo app sẵn sàng
 if __name__ == "__main__":
