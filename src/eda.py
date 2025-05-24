@@ -15,9 +15,9 @@ root_dir = os.path.abspath(os.path.join(script_dir, '..'))
 sys.path.insert(0, root_dir)
 
 # Đường dẫn đến thư mục dataset
-DATASET_DIR = os.path.join(root_dir, 'data', 'dataset')
+DATASET_DIR = os.path.join(root_dir, 'data')
 # Đường dẫn để lưu kết quả phân tích
-EDA_RESULTS_DIR = os.path.join(root_dir, 'visualizations', 'eda_results')
+EDA_RESULTS_DIR = os.path.join(root_dir, 'outputs', 'eda_results')
 
 def load_yaml_config():
     """Tải file cấu hình YAML của dataset."""

@@ -15,9 +15,9 @@ sys.path.append(root_dir)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Hiển thị và sửa đổi nhãn cho biển báo giao thông")
-    parser.add_argument('--data', type=str, default='data/dataset/data.yaml',
+    parser.add_argument('--data', type=str, default='data/data.yaml',
                         help='Đường dẫn đến file data.yaml')
-    parser.add_argument('--output', type=str, default='data/dataset/data_renamed.yaml',
+    parser.add_argument('--output_data', type=str, default='data/data_renamed.yaml',
                         help='Đường dẫn đến file data.yaml đầu ra với tên nhãn mới')
     parser.add_argument('--sample-per-class', type=int, default=5,
                         help='Số lượng ảnh mẫu để hiển thị cho mỗi lớp')
@@ -176,8 +176,8 @@ def main():
     display_class_samples(data_yaml, label_images, args.sample_per_class)
     
     # Lưu file data.yaml mới
-    save_data_yaml(data_yaml, args.output)
-    print(f"Bạn có thể cập nhật file {args.data} bằng nội dung từ {args.output}")
+    save_data_yaml(data_yaml, args.output_data)
+    print(f"Bạn có thể cập nhật file {args.data} bằng nội dung từ {args.output_data}")
 
 if __name__ == "__main__":
     main() 

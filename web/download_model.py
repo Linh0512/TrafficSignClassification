@@ -1,14 +1,15 @@
 import os
 import sys
 import requests
+import shutil
 from tqdm import tqdm
 
 # Thêm thư mục gốc vào sys.path
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(root_dir)
 
-# URL của model (thay thế bằng URL thực tế của model đã train)
-MODEL_URL = os.environ.get('MODEL_URL', 'https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt')
+# URL của model (thay thế bằng URL thực tế của model YOLOv12)
+MODEL_URL = os.environ.get('MODEL_URL', 'https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo12n.pt')
 
 def download_file(url, destination):
     """Tải file từ URL và hiển thị tiến trình"""
@@ -43,7 +44,21 @@ def download_file(url, destination):
     print(f"File đã được tải về: {destination}")
     return True
 
+def copy_trained_model(source, destination):
+    """Copy mô hình đã train từ thư mục runs vào thư mục models"""
+    try:
+        print(f"Đang sao chép model đã train từ {source} đến {destination}...")
+        shutil.copy2(source, destination)
+        print(f"Đã sao chép model thành công!")
+        return True
+    except Exception as e:
+        print(f"Lỗi khi sao chép model: {e}")
+        return False
+
 def main():
+    # Đường dẫn đến mô hình đã train
+    trained_model_path = os.path.join(root_dir, "runs", "train", "traffic_sign_detection_yolo12", "weights", "best.pt")
+    
     # Đường dẫn lưu model trong thư mục models
     model_path = os.path.join(root_dir, "models", "best.pt")
     
@@ -52,10 +67,17 @@ def main():
         print(f"Model đã tồn tại: {model_path}")
         return
     
+    # Kiểm tra nếu mô hình đã train tồn tại, sao chép sang thư mục models
+    if os.path.exists(trained_model_path):
+        success = copy_trained_model(trained_model_path, model_path)
+        if success:
+            return
+    
+    # Nếu không tìm thấy mô hình đã train, tiến hành tải model từ web
     # Kiểm tra biến môi trường cấu hình
     model_url = os.environ.get('MODEL_URL')
     if not model_url:
-        # Dùng model mặc định YOLOv8n
+        # Dùng model mặc định YOLOv12n
         model_url = MODEL_URL
         print(f"Không tìm thấy MODEL_URL, dùng model mặc định: {model_url}")
     

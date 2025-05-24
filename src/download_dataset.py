@@ -12,7 +12,7 @@ sys.path.append(root_dir)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Tải dữ liệu biển báo giao thông từ Roboflow")
-    parser.add_argument('--data', type=str, default='data/dataset/data.yaml',
+    parser.add_argument('--data', type=str, default='data/data.yaml',
                         help='Đường dẫn đến file data.yaml')
     parser.add_argument('--api-key', type=str, default='',
                         help='Roboflow API key')

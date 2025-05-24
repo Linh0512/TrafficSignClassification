@@ -1,148 +1,60 @@
 import os
 import sys
 import argparse
-from pathlib import Path
+from ultralytics import YOLO
+import matplotlib.pyplot as plt
+
+# Thêm thư mục gốc vào sys.path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(script_dir, '..'))
+sys.path.insert(0, root_dir)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Traffic Sign Detection Project')
+    """Xử lý các đối số dòng lệnh"""
+    parser = argparse.ArgumentParser(description="Chương trình chính cho nhận diện biển báo giao thông với YOLOv12")
+    parser.add_argument("--mode", type=str, choices=["train", "predict", "evaluate", "visualize", "download", "eda"], 
+                        required=True, help="Chế độ chạy: train, predict, evaluate, visualize, download, eda")
+    parser.add_argument("--model", type=str, help="Đường dẫn đến model YOLOv12")
+    parser.add_argument("--data", type=str, default=os.path.join(root_dir, "data/data.yaml"), 
+                        help="Đường dẫn đến file data.yaml")
+    parser.add_argument("--source", type=str, help="Đường dẫn đến ảnh/thư mục/video cần dự đoán")
+    parser.add_argument("--epochs", type=int, default=50, help="Số epochs huấn luyện")
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
+    parser.add_argument("--img_size", type=int, default=640, help="Kích thước ảnh")
+    parser.add_argument("--device", type=str, default="", help="CUDA device, vd: 0, 1, 2, 3 hoặc cpu")
+    parser.add_argument("--workers", type=int, default=8, help="Số worker thread")
+    parser.add_argument("--conf_thres", type=float, default=0.25, help="Ngưỡng tin cậy")
+    parser.add_argument("--iou_thres", type=float, default=0.45, help="Ngưỡng IoU cho NMS")
+    parser.add_argument("--project", type=str, default=os.path.join(root_dir, "outputs/runs"), help="Thư mục lưu kết quả")
+    parser.add_argument("--name", type=str, default="exp", help="Tên thư mục con lưu kết quả")
+    parser.add_argument("--save_txt", action="store_true", help="Lưu kết quả dạng .txt")
+    parser.add_argument("--save_conf", action="store_true", help="Lưu điểm tin cậy với kết quả")
+    args = parser.parse_args()
     
-    # Các thao tác chính
-    parser.add_argument('--action', type=str, required=True, choices=['eda', 'train', 'evaluate', 'predict', 'plot', 'visualize-labels', 'download-dataset'],
-                      help='Hành động muốn thực hiện: eda, train, evaluate, predict, plot, visualize-labels, download-dataset')
-    
-    # Các tham số chung
-    parser.add_argument('--model', type=str, default='models/yolov8n.pt',
-                      help='Đường dẫn đến model (*.pt)')
-    parser.add_argument('--data', type=str, default='data/dataset/data.yaml',
-                      help='File dữ liệu yaml')
-    
-    # Các tham số cho huấn luyện
-    parser.add_argument('--epochs', type=int, default=50,
-                      help='Số epochs huấn luyện')
-    parser.add_argument('--batch-size', type=int, default=16,
-                      help='Kích thước batch')
-    parser.add_argument('--img-size', type=int, default=640,
-                      help='Kích thước ảnh đầu vào')
-    parser.add_argument('--device', type=str, default='',
-                      help='cuda device (0, 1, ...) hoặc cpu')
-    
-    # Các tham số cho predict
-    parser.add_argument('--source', type=str, default='',
-                      help='Đường dẫn đến ảnh hoặc thư mục chứa ảnh cần dự đoán')
-    parser.add_argument('--conf', type=float, default=0.25,
-                      help='Ngưỡng tin cậy')
-    parser.add_argument('--iou', type=float, default=0.7,
-                      help='Ngưỡng IoU cho NMS')
-    parser.add_argument('--view-img', action='store_true',
-                      help='Hiển thị ảnh kết quả')
-    
-    # Các tham số cho plot
-    parser.add_argument('--result-path', type=str, default='runs/train/traffic_sign_detection',
-                      help='Đường dẫn đến thư mục kết quả huấn luyện')
-    
-    # Các tham số cho evaluate
-    parser.add_argument('--visualize', action='store_true',
-                      help='Hiển thị một số kết quả nhận diện')
-    parser.add_argument('--num-samples', type=int, default=10,
-                      help='Số mẫu để hiển thị khi visualize=True')
-    
-    # Các tham số cho visualize labels
-    parser.add_argument('--output', type=str, default='data/dataset/data_renamed.yaml',
-                      help='Đường dẫn đến file data.yaml đầu ra với tên nhãn mới')
-    parser.add_argument('--sample-per-class', type=int, default=5, 
-                      help='Số lượng ảnh mẫu để hiển thị cho mỗi lớp')
-    
-    # Các tham số cho download dataset
-    parser.add_argument('--api-key', type=str, default='',
-                      help='Roboflow API key')
-    
-    return parser.parse_args()
-
-def run_eda():
-    print("Đang chạy phân tích dữ liệu thăm dò (EDA)...")
-    os.system(f"python src/eda.py")
-
-def run_train(args):
-    print("Đang huấn luyện mô hình...")
-    cmd = (f"python src/train.py --model {args.model} --epochs {args.epochs} "
-           f"--batch-size {args.batch_size} --img-size {args.img_size} "
-           f"--data {args.data}")
-    
-    if args.device:
-        cmd += f" --device {args.device}"
-    
-    os.system(cmd)
-
-def run_evaluate(args):
-    print("Đang đánh giá mô hình...")
-    cmd = (f"python src/evaluate.py --model {args.model} --data {args.data} "
-           f"--conf {args.conf} --iou {args.iou}")
-    
-    if args.device:
-        cmd += f" --device {args.device}"
-    
-    if args.visualize:
-        cmd += f" --visualize --num-samples {args.num_samples}"
-    
-    os.system(cmd)
-
-def run_predict(args):
-    if not args.source:
-        print("Lỗi: Thiếu đối số --source. Hãy chỉ định đường dẫn đến ảnh hoặc thư mục ảnh.")
-        sys.exit(1)
-        
-    print("Đang thực hiện dự đoán...")
-    cmd = (f"python src/predict.py --model {args.model} --source {args.source} "
-           f"--conf {args.conf} --iou {args.iou} "
-           f"--data {args.data}")
-    
-    if args.device:
-        cmd += f" --device {args.device}"
-    
-    if args.view_img:
-        cmd += " --view-img"
-    
-    os.system(cmd)
-
-def run_plot(args):
-    print("Đang vẽ biểu đồ...")
-    os.system(f"python src/plot_results.py --result-path {args.result_path}")
-
-def run_visualize_labels(args):
-    print("Đang hiển thị và cho phép sửa đổi nhãn...")
-    cmd = (f"python src/visualize_labels.py --data {args.data} "
-           f"--output {args.output} --sample-per-class {args.sample_per_class}")
-    os.system(cmd)
-
-def run_download_dataset(args):
-    print("Đang tải dữ liệu từ Roboflow...")
-    cmd = f"python src/download_dataset.py --data {args.data}"
-    
-    if args.api_key:
-        cmd += f" --api-key {args.api_key}"
-    
-    os.system(cmd)
+    return args
 
 def main():
     args = parse_args()
     
-    if args.action == 'eda':
-        run_eda()
-    elif args.action == 'train':
-        run_train(args)
-    elif args.action == 'evaluate':
-        run_evaluate(args)
-    elif args.action == 'predict':
-        run_predict(args)
-    elif args.action == 'plot':
-        run_plot(args)
-    elif args.action == 'visualize-labels':
-        run_visualize_labels(args)
-    elif args.action == 'download-dataset':
-        run_download_dataset(args)
-    else:
-        print(f"Hành động không hợp lệ: {args.action}")
-        sys.exit(1)
-
+    # Chọn chế độ chạy
+    if args.mode == "train":
+        from src.train import train
+        train(args)
+    elif args.mode == "predict":
+        from src.predict import predict
+        predict(args)
+    elif args.mode == "evaluate":
+        from src.evaluate import evaluate
+        evaluate(args)
+    elif args.mode == "visualize":
+        from src.visualize_labels import visualize_labels
+        visualize_labels(args)
+    elif args.mode == "download":
+        from src.download_dataset import download_dataset
+        download_dataset(args)
+    elif args.mode == "eda":
+        from src.eda import exploratory_data_analysis
+        exploratory_data_analysis(args)
+    
 if __name__ == "__main__":
     main() 

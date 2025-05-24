@@ -1,159 +1,139 @@
-# Hệ thống nhận diện biển báo giao thông Việt Nam
+# YOLOv12 Object Detection Project
 
-Hệ thống phát hiện, phân loại biển báo giao thông Việt Nam sử dụng YOLOv8.
+Dự án nhận diện đối tượng sử dụng YOLOv12 với dataset từ Roboflow.
 
-## Cấu trúc dự án
+## 📁 Cấu trúc dự án (Đã được tái cấu trúc)
 
 ```
-project/
-├── data/                      # Thư mục dữ liệu
-│   └── dataset/               # Cấu hình và thông tin về dataset
-├── dataset/                   # Dữ liệu huấn luyện (không đẩy lên Git)
-├── models/                    # Thư mục chứa các mô hình
-│   ├── download_weights.py    # Script tải weights mô hình
-│   └── .gitkeep               # Đảm bảo thư mục được theo dõi bởi Git
-├── results/                   # Kết quả dự đoán
-├── runs/                      # Thư mục lưu quá trình huấn luyện
-├── src/                       # Mã nguồn
-│   ├── eda.py                 # Phân tích dữ liệu
-│   ├── train.py               # Huấn luyện mô hình
-│   ├── evaluate.py            # Đánh giá mô hình
-│   ├── predict.py             # Dự đoán với mô hình đã huấn luyện
-│   ├── plot_results.py        # Vẽ đồ thị kết quả huấn luyện
-│   ├── update_settings.py     # Cập nhật cài đặt Ultralytics
-│   ├── visualize_labels.py    # Hiển thị và sửa tên nhãn
-│   └── download_dataset.py    # Tải dữ liệu từ Roboflow
-├── visualizations/            # Thư mục lưu các hình ảnh và đồ thị
-├── web/                       # Ứng dụng web deploy lên Vercel
-│   ├── app.py                 # FastAPI app
-│   ├── requirements.txt       # Các thư viện cần thiết
-│   └── static/                # CSS, JavaScript, và các file tĩnh
-├── main.py                    # File điều khiển chính
-├── requirements.txt           # Danh sách các thư viện cần thiết
-└── README.md                  # Hướng dẫn sử dụng
+FinalProject_Yolov12/
+├── src/                          # Mã nguồn chính
+│   ├── main.py                   # File chính để chạy tất cả chức năng
+│   ├── train.py                  # Huấn luyện model
+│   ├── evaluate.py               # Đánh giá model
+│   ├── predict.py                # Dự đoán với model đã huấn luyện
+│   ├── visualize_labels.py       # Hiển thị và chỉnh sửa nhãn
+│   ├── download_dataset.py       # Tải dataset từ Roboflow
+│   ├── eda.py                    # Phân tích khám phá dữ liệu
+│   ├── plot_results.py           # Vẽ biểu đồ kết quả
+│   └── update_settings.py        # Cập nhật cài đặt
+├── models/                       # Models YOLOv12
+│   ├── best_yolo12.pt           # Model tốt nhất đã huấn luyện
+│   ├── yolo12n.pt               # Model base YOLOv12n
+│   ├── best.pt                  # Model backup
+│   └── download_weights.py      # Script tải weights
+├── data/                        # Dataset chính
+│   ├── train/                   # Ảnh và nhãn huấn luyện
+│   │   ├── images/
+│   │   └── labels/
+│   ├── valid/                   # Ảnh và nhãn validation
+│   │   ├── images/
+│   │   └── labels/
+│   ├── test/                    # Ảnh và nhãn test
+│   │   ├── images/
+│   │   └── labels/
+│   └── data.yaml               # Cấu hình dataset
+├── outputs/                     # Kết quả và outputs (đã gộp)
+│   ├── runs/                    # Kết quả training/validation
+│   ├── results/                 # Kết quả prediction
+│   ├── visualizations/          # Biểu đồ và visualization
+│   └── eda_results/            # Kết quả phân tích EDA
+├── web/                         # Web application (riêng biệt)
+│   ├── app.py                   # Flask/FastAPI app
+│   ├── templates/               # HTML templates
+│   ├── static/                  # CSS, JS, images
+│   ├── requirements.txt         # Dependencies cho web
+│   └── README.md               # Hướng dẫn web app
+├── requirements.txt             # Dependencies chính
+├── .gitignore                  # Git ignore (đã cập nhật)
+└── README.md                   # File này
 ```
 
-## Cài đặt
+## 🚀 Khởi động project
 
-1. Clone dự án:
-```bash
-git clone https://github.com/Linh0512/traffic-sign-detection.git
-cd traffic-sign-detection
-```
-
-2. Cài đặt thư viện cần thiết:
+### 1. Cài đặt dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Tải weights mô hình:
+### 2. Tải dataset (nếu chưa có)
 ```bash
-python models/download_weights.py --source drive
+python src/main.py --mode download --data data/data.yaml
 ```
 
-4. Cập nhật đường dẫn dataset cho Ultralytics:
+### 3. Phân tích dữ liệu (EDA)
 ```bash
-python src/update_settings.py
+python src/main.py --mode eda --data data/data.yaml
 ```
 
-## Sử dụng cách 1: Sử dụng các script riêng
-
-### Phân tích dữ liệu (EDA)
+### 4. Huấn luyện model (50 epochs)
 ```bash
-python src/eda.py
-```
-Kết quả phân tích sẽ được lưu trong thư mục `visualizations/eda_results/`.
-
-### Huấn luyện mô hình
-```bash
-python src/train.py --model models/yolov8n.pt --epochs 50 --batch-size 16
+python src/main.py --mode train --model models/yolo12n.pt --data data/data.yaml --epochs 50
 ```
 
-### Đánh giá mô hình
+### 5. Đánh giá model
 ```bash
-python src/evaluate.py --model runs/train/traffic_sign_detection/weights/best.pt --visualize
+python src/main.py --mode evaluate --model models/best_yolo12.pt --data data/data.yaml
 ```
 
-### Dự đoán với mô hình đã huấn luyện
+### 6. Dự đoán
 ```bash
-python src/predict.py --model runs/train/traffic_sign_detection/weights/best.pt --source data/dataset/test/images
+python src/main.py --mode predict --model models/best_yolo12.pt --source path/to/image --data data/data.yaml
 ```
 
-### Vẽ biểu đồ kết quả huấn luyện
+## 🔧 Các tính năng chính
+
+- **Training**: Huấn luyện model YOLOv12 với custom dataset
+- **Evaluation**: Đánh giá hiệu suất model với metrics chi tiết
+- **Prediction**: Dự đoán trên ảnh mới với visualization
+- **EDA**: Phân tích khám phá dữ liệu với các biểu đồ
+- **Visualization**: Hiển thị và chỉnh sửa nhãn dataset
+- **Web Interface**: Giao diện web để sử dụng model (thư mục `web/`)
+
+## 📊 Dataset
+
+Dataset chứa 59 classes của các đối tượng thực phẩm và đồ gia dụng:
+- **Training**: 2280+ images
+- **Validation**: ~400 images  
+- **Test**: ~200 images
+
+## 🎯 Models
+
+Dự án sử dụng YOLOv12 với các phiên bản:
+- `yolo12n.pt`: Model base YOLOv12 nano
+- `best_yolo12.pt`: Model tốt nhất
+- `best.pt`: Model backup
+
+## 📈 Kết quả
+
+Tất cả kết quả được lưu trong thư mục `outputs/`:
+- Training logs và metrics: `outputs/runs/`
+- Prediction results: `outputs/results/`
+- Visualization plots: `outputs/visualizations/`
+- EDA analysis: `outputs/eda_results/`
+
+## 🌐 Web Application
+
+Để chạy web interface:
 ```bash
-python src/plot_results.py --result-path runs/train/traffic_sign_detection
+cd web
+pip install -r requirements.txt
+python app.py
 ```
 
-### Hiển thị và thay đổi tên nhãn
-```bash
-python src/visualize_labels.py
-```
+## 📝 Thay đổi cấu trúc
 
-## Sử dụng cách 2: Chạy thông qua file main.py
+Dự án đã được tái cấu trúc để:
+- ✅ Gộp các thư mục kết quả vào `outputs/`
+- ✅ Thống nhất dataset trong `data/`
+- ✅ Chỉ giữ models YOLOv12 cần thiết
+- ✅ Xóa cache và file tạm thời
+- ✅ Cập nhật đường dẫn trong source code
+- ✅ Tối ưu .gitignore
 
-### Phân tích dữ liệu (EDA)
-```bash
-python main.py --action eda
-```
+## 🤝 Đóng góp
 
-### Huấn luyện mô hình
-```bash
-python main.py --action train --model models/yolov8n.pt --epochs 50 --batch-size 16
-```
+Mọi đóng góp đều được chào đón! Hãy tạo issue hoặc pull request.
 
-### Đánh giá mô hình
-```bash
-python main.py --action evaluate --model runs/train/traffic_sign_detection/weights/best.pt --visualize
-```
+## 📄 License
 
-### Dự đoán với mô hình đã huấn luyện
-```bash
-python main.py --action predict --model runs/train/traffic_sign_detection/weights/best.pt --source data/dataset/test/images
-```
-
-### Vẽ biểu đồ kết quả huấn luyện
-```bash
-python main.py --action plot --result-path runs/train/traffic_sign_detection
-```
-
-### Hiển thị và thay đổi tên nhãn
-```bash
-python main.py --action visualize-labels
-```
-
-## Deploy lên Vercel
-
-Ứng dụng web được triển khai trên Vercel cho phép người dùng:
-- Sử dụng webcam để nhận diện biển báo giao thông theo thời gian thực
-- Tải lên ảnh để phân tích và nhận diện biển báo giao thông
-
-Để truy cập ứng dụng web:
-- URL: [https://traffic-sign-detection.vercel.app](https://traffic-sign-detection.vercel.app)
-
-## Lưu ý khi clone dự án
-
-Khi clone dự án từ GitHub, do các file dữ liệu và weights không được đẩy lên (do kích thước lớn), bạn cần:
-
-1. Tải mô hình weights:
-   ```bash
-   python models/download_weights.py
-   ```
-
-2. Nếu muốn huấn luyện lại mô hình, bạn cần tải dữ liệu từ Roboflow:
-   ```bash
-   python src/download_dataset.py
-   ```
-
-## Công cụ và thư viện sử dụng
-
-- YOLOv8: Thuật toán phát hiện đối tượng
-- Ultralytics: Framework triển khai YOLOv8
-- OpenCV: Xử lý ảnh
-- Matplotlib: Vẽ đồ thị
-- FastAPI: Framework web API 
-- Vercel: Nền tảng triển khai ứng dụng
-
-## Tác giả
-
-- Trần Qui Linh
-- Huỳnh Đăng Khoa
+MIT License

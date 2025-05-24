@@ -1,46 +1,74 @@
-# Ignore Python compiled files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Ignore environment directories
-venv/
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Environment
+.env
+.venv
 env/
+venv/
 ENV/
 
-# Ignore dataset (quá lớn để đẩy lên GitHub)
-dataset/
-data/dataset/train/
-data/dataset/valid/
-data/dataset/test/
+# Dataset (chỉ giữ cấu trúc, không ignore data)
+data/train/labels.cache
+data/valid/labels.cache
+data/test/labels.cache
 
-# Ignore large model files but keep directory structure
-*.pt
+# Outputs và kết quả (cho phép theo dõi nhưng ignore file lớn)
+outputs/runs/
+outputs/results/*.jpg
+outputs/results/*.png
+outputs/visualizations/*.png
+outputs/eda_results/*.png
+
+# Model weights (chỉ giữ YOLOv12 models)
+models/*
+!models/best_yolo12.pt
+!models/yolo12n.pt
+!models/best.pt
 !models/download_weights.py
-
-# Keep empty directories
 !models/.gitkeep
-!results/.gitkeep
-!runs/.gitkeep
-!visualizations/.gitkeep
 
-# Ignore all log files
+# Logs
 *.log
 
-# Ignore OS specific files
+# Local development
 .DS_Store
 Thumbs.db
 
-# Ignore IDE specific files
-.idea/
-.vscode/
-*.swp
-*.swo
+# Vercel
+.vercel/
 
-# Ignore Jupyter Notebook checkpoints
-.ipynb_checkpoints/
+# Cache
+.cache/
 
-# Pytorch Lightning logs
-lightning_logs/ 
+# Temporary files
+*.tmp
+*.temp

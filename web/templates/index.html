@@ -10,13 +10,20 @@
 <body>
     <div class="container mt-5">
         <h1 class="text-center mb-4">Hệ thống nhận diện biển báo giao thông</h1>
+        <p class="text-center text-muted mb-4">Sử dụng mô hình YOLOv12 được huấn luyện trên dữ liệu biển báo Việt Nam</p>
         
         <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab" aria-controls="upload" aria-selected="true">Tải ảnh lên</button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="video-tab" data-bs-toggle="tab" data-bs-target="#video" type="button" role="tab" aria-controls="video" aria-selected="false">Tải video lên</button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="webcam-tab" data-bs-toggle="tab" data-bs-target="#webcam" type="button" role="tab" aria-controls="webcam" aria-selected="false">Webcam</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="false">Thông tin mô hình</button>
             </li>
         </ul>
         
@@ -76,6 +83,82 @@
                 </div>
             </div>
             
+            <!-- Video Tab -->
+            <div class="tab-pane fade" id="video" role="tabpanel" aria-labelledby="video-tab">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                Tải video lên
+                            </div>
+                            <div class="card-body">
+                                <form id="video-upload-form" enctype="multipart/form-data">
+                                    <div class="mb-3">
+                                        <label for="video-upload" class="form-label">Chọn video</label>
+                                        <input class="form-control" type="file" id="video-upload" name="file" accept="video/*" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="video-confidence" class="form-label">Ngưỡng tin cậy: <span id="video-conf-value">0.25</span></label>
+                                        <input type="range" class="form-range" min="0.1" max="0.9" step="0.05" id="video-confidence" value="0.25">
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="video-stabilize" checked>
+                                            <label class="form-check-label" for="video-stabilize">
+                                                Ổn định nhận diện (tránh nhiễu)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex">
+                                        <button type="submit" class="btn btn-primary me-2" id="video-detect-btn">Xử lý video</button>
+                                        <button type="button" class="btn btn-danger d-none" id="video-stop-btn">Dừng xử lý</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                Kết quả
+                            </div>
+                            <div class="card-body">
+                                <div id="video-result-container" class="position-relative">
+                                    <div id="video-placeholder" class="text-center">
+                                        <p>Video sẽ hiển thị ở đây</p>
+                                    </div>
+                                    <div class="video-wrapper position-relative">
+                                        <video id="video-player" class="d-none w-100" controls></video>
+                                        <canvas id="video-canvas" class="d-none position-absolute top-0 start-0 w-100"></canvas>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between mt-2">
+                                    <small class="text-muted">FPS: <span id="video-fps">0</span></small>
+                                    <small class="text-muted">Đang xử lý: <span id="video-processing-status">Không</span></small>
+                                </div>
+                                <div class="mt-2 small text-muted">
+                                    <p class="mb-0"><i>Đưa chuột vào video để hiển thị thanh điều khiển. Bấm vào video để tạm dừng/tiếp tục, phóng to hoặc tua video.</i></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                Thông tin biển báo
+                            </div>
+                            <div class="card-body">
+                                <div id="video-detection-results">
+                                    <p class="text-center">Thông tin biển báo sẽ hiển thị ở đây</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Webcam Tab -->
             <div class="tab-pane fade" id="webcam" role="tabpanel" aria-labelledby="webcam-tab">
                 <div class="row">
@@ -110,6 +193,38 @@
                                 <div id="webcam-detection-results">
                                     <p class="text-center">Thông tin biển báo sẽ hiển thị ở đây</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Model Info Tab -->
+            <div class="tab-pane fade" id="info" role="tabpanel" aria-labelledby="info-tab">
+                <div class="card">
+                    <div class="card-header">
+                        Thông tin về mô hình YOLOv12
+                    </div>
+                    <div class="card-body">
+                        <div id="model-info">
+                            <h5>YOLOv12 (You Only Look Once)</h5>
+                            <p>Mô hình YOLOv12 là phiên bản cải tiến mới nhất của kiến trúc YOLO với nhiều cải tiến về kiến trúc và hiệu suất.</p>
+                            
+                            <h6>Các cải tiến so với YOLOv8:</h6>
+                            <ul>
+                                <li>Sử dụng module transformer cải tiến để tăng khả năng học ngữ cảnh</li>
+                                <li>Kiến trúc mạng tốt hơn với Dynamic Head Module</li>
+                                <li>Hỗ trợ RepOptimizer cho tốc độ huấn luyện nhanh hơn</li>
+                                <li>Cải thiện mạng Cross-Stage Partial Networks v3 (CSPv3)</li>
+                                <li>Cấu trúc mô hình linh hoạt và có khả năng mở rộng</li>
+                            </ul>
+                            
+                            <h6>Dữ liệu huấn luyện:</h6>
+                            <p>Mô hình được huấn luyện trên bộ dữ liệu 58 loại biển báo giao thông Việt Nam.</p>
+                            
+                            <h6>Thông tin chi tiết:</h6>
+                            <div id="model-details">
+                                <p class="text-center">Đang tải thông tin mô hình...</p>
                             </div>
                         </div>
                     </div>

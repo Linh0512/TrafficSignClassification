@@ -19,9 +19,9 @@ sys.path.insert(0, root_dir)
 
 def parse_args():
     """Xử lý các đối số dòng lệnh"""
-    parser = argparse.ArgumentParser(description='Đánh giá mô hình YOLOv8 cho nhận diện biển báo giao thông')
+    parser = argparse.ArgumentParser(description='Đánh giá mô hình YOLOv12 cho nhận diện biển báo giao thông')
     parser.add_argument('--model', type=str, required=True, help='Đường dẫn đến model đã huấn luyện (*.pt)')
-    parser.add_argument('--data', type=str, default=os.path.join(root_dir, 'data/dataset/data.yaml'), help='File dữ liệu yaml')
+    parser.add_argument('--data', type=str, default=os.path.join(root_dir, 'data/data.yaml'), help='File dữ liệu yaml')
     parser.add_argument('--conf', type=float, default=0.25, help='Ngưỡng tin cậy')
     parser.add_argument('--iou', type=float, default=0.7, help='Ngưỡng IoU cho NMS')
     parser.add_argument('--img-size', type=int, default=640, help='Kích thước ảnh đầu vào')
@@ -31,248 +31,190 @@ def parse_args():
     parser.add_argument('--save-conf', action='store_true', help='Lưu ngưỡng tin cậy cùng với dự đoán')
     parser.add_argument('--visualize', action='store_true', help='Hiển thị một số kết quả nhận diện')
     parser.add_argument('--num-samples', type=int, default=10, help='Số mẫu để hiển thị khi visualize=True')
-    parser.add_argument('--output-dir', type=str, default=os.path.join(root_dir, 'results', 'eval_results'), 
-                      help='Thư mục lưu kết quả đánh giá')
+    parser.add_argument('--output', type=str, default=os.path.join(root_dir, 'results/evaluation'), help='Thư mục lưu kết quả đánh giá')
     
-    return parser.parse_args()
+    args = parser.parse_args()
+    return args
 
-def load_class_names(data_yaml):
-    """Tải tên các lớp từ file YAML"""
+def load_classes(data_yaml):
+    """Tải danh sách lớp từ file yaml"""
     with open(data_yaml, 'r') as f:
         data = yaml.safe_load(f)
-    class_names = data['names']
-    return class_names
+    return data['names']
 
-def validate_model(args):
-    """Đánh giá mô hình trên tập validation"""
-    # Tải model
-    model = YOLO(args.model)
+def validate(args):
+    """Đánh giá mô hình YOLOv12"""
+    # Kiểm tra đầu vào
+    if not os.path.exists(args.model):
+        print(f"Lỗi: Không tìm thấy model tại {args.model}")
+        return
     
-    # Tải thông tin các class
-    class_names = load_class_names(args.data)
+    # Tạo thư mục đầu ra
+    os.makedirs(args.output, exist_ok=True)
     
-    # Kiểm tra device
+    # Tải classes
+    class_names = load_classes(args.data)
+    print(f"Đã tải {len(class_names)} classes từ {args.data}")
+    
+    # Thiết lập device
     device = args.device
     if device == '':
         device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    print(f"Sử dụng device: {device}")
     
-    print(f"Đánh giá mô hình trên device: {device}")
+    # Tải model
+    try:
+        model = YOLO(args.model)
+        print(f"Đã tải model từ {args.model}")
+    except Exception as e:
+        print(f"Lỗi khi tải model: {e}")
+        return
     
-    # Đánh giá model trên tập validation
-    metrics = model.val(
-        data=args.data,
-        imgsz=args.img_size,
-        batch=args.batch_size,
-        conf=args.conf,
-        iou=args.iou,
-        device=device,
-        verbose=True,
-        save_txt=args.save_txt,
-        save_conf=args.save_conf,
-    )
-    
-    print("\nKết quả đánh giá:")
-    print(f"mAP50: {metrics.box.map50:.4f}")
-    print(f"mAP50-95: {metrics.box.map:.4f}")
-    print(f"Precision: {metrics.box.p:.4f}")
-    print(f"Recall: {metrics.box.r:.4f}")
-    
-    return metrics
+    # Thực hiện đánh giá
+    try:
+        print(f"Đánh giá model trên tập dữ liệu {args.data}")
+        metrics = model.val(
+            data=args.data,
+            conf=args.conf,
+            iou=args.iou,
+            imgsz=args.img_size,
+            batch=args.batch_size,
+            device=device,
+            save_txt=args.save_txt,
+            save_conf=args.save_conf,
+            save_json=True,  # Lưu kết quả dạng COCO format để phân tích
+            project=args.output,
+            name='val',
+            exist_ok=True,
+            verbose=True
+        )
+        
+        # In kết quả
+        print("\nKết quả đánh giá:")
+        print(f"mAP50-95: {metrics.box.map:.4f}")
+        print(f"mAP50: {metrics.box.map50:.4f}")
+        print(f"mAP75: {metrics.box.map75:.4f}")
+        print(f"Precision: {metrics.box.mp:.4f}")
+        print(f"Recall: {metrics.box.mr:.4f}")
+        
+        # Phân tích thêm và trực quan kết quả
+        visualize_results(model, args, class_names)
+        
+        # Lưu kết quả thành báo cáo
+        save_report(metrics, class_names, args.output)
+        
+        return metrics
+        
+    except Exception as e:
+        print(f"Lỗi khi đánh giá model: {e}")
+        return None
 
-def plot_confusion_matrix(metrics, class_names, save_path='confusion_matrix.png'):
-    """Vẽ ma trận nhầm lẫn từ kết quả đánh giá"""
-    if hasattr(metrics, 'confusion_matrix') and metrics.confusion_matrix is not None:
-        cm = metrics.confusion_matrix
-        
-        # Chuẩn hóa confusion matrix
-        cm_norm = cm / (cm.sum(axis=1, keepdims=True) + 1e-9)
-        
-        # Tạo dataframe cho ma trận nhầm lẫn
-        num_classes = len(class_names)
-        if num_classes > cm_norm.shape[0]:
-            num_classes = cm_norm.shape[0]
-        
-        cm_df = pd.DataFrame(cm_norm[:num_classes, :num_classes], 
-                            index=class_names[:num_classes], 
-                            columns=class_names[:num_classes])
-        
-        # Vẽ heatmap
-        plt.figure(figsize=(16, 14))
-        sns.heatmap(cm_df, annot=False, cmap='Blues', vmin=0, vmax=1)
-        plt.title('Confusion Matrix (Normalized)')
-        plt.xlabel('Predicted')
-        plt.ylabel('True')
-        plt.xticks(rotation=90)
-        plt.yticks(rotation=0)
-        plt.tight_layout()
-        plt.savefig(save_path)
-        plt.close()
-        
-        print(f"Đã lưu ma trận nhầm lẫn vào {save_path}")
-    else:
-        print("Không có dữ liệu ma trận nhầm lẫn")
-
-def visualize_predictions(args, num_samples):
-    """Hiển thị một số kết quả nhận diện từ model"""
+def visualize_results(model, args, class_names):
+    """Hiển thị và trực quan hóa một số kết quả"""
     if not args.visualize:
         return
     
-    # Tải model
-    model = YOLO(args.model)
-    
-    # Tải thông tin các class
-    class_names = load_class_names(args.data)
-    
-    # Tải config
+    # Tải dữ liệu từ file YAML
     with open(args.data, 'r') as f:
-        data_config = yaml.safe_load(f)
+        data = yaml.safe_load(f)
     
-    # Lấy đường dẫn thư mục test
-    test_dir = data_config.get('test', None)
-    if test_dir is None:
-        test_dir = data_config.get('val', None)
-    
-    if test_dir is None:
-        print("Không tìm thấy đường dẫn thư mục test hoặc validation trong file config")
+    test_path = data['test']
+    if not os.path.exists(test_path):
+        print(f"Đường dẫn tập kiểm thử không tồn tại: {test_path}")
         return
     
-    # Đảm bảo đường dẫn đúng
-    if test_dir.startswith("../"):
-        test_dir = os.path.join("dataset", test_dir[3:])
-    
-    # Lấy danh sách các file ảnh
-    image_files = [f for f in os.listdir(test_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
-    
-    if len(image_files) == 0:
-        print(f"Không tìm thấy ảnh trong {test_dir}")
+    # Lấy đường dẫn thư mục chứa ảnh test
+    test_images_path = os.path.join(test_path, 'images')
+    if not os.path.exists(test_images_path):
+        print(f"Không tìm thấy thư mục ảnh test: {test_images_path}")
         return
     
-    # Chọn ngẫu nhiên một số ảnh để hiển thị
-    selected_files = np.random.choice(image_files, min(num_samples, len(image_files)), replace=False)
+    # Lấy danh sách ảnh
+    images = [os.path.join(test_images_path, f) for f in os.listdir(test_images_path) 
+              if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp'))]
     
-    # Tạo thư mục để lưu kết quả
-    results_dir = 'eval_results'
-    os.makedirs(results_dir, exist_ok=True)
+    if not images:
+        print("Không tìm thấy ảnh để hiển thị")
+        return
     
-    plt.figure(figsize=(20, 16))
-    for i, img_file in enumerate(selected_files):
-        # Đường dẫn ảnh
-        img_path = os.path.join(test_dir, img_file)
+    # Lấy mẫu ngẫu nhiên
+    num_samples = min(args.num_samples, len(images))
+    sample_indices = np.random.choice(len(images), num_samples, replace=False)
+    
+    # Dự đoán trên các mẫu ngẫu nhiên
+    fig, axes = plt.subplots(num_samples, 2, figsize=(12, 4 * num_samples))
+    if num_samples == 1:
+        axes = axes.reshape(1, 2)
+    
+    for i, idx in enumerate(sample_indices):
+        image_path = images[idx]
+        
+        # Đọc ảnh gốc
+        original_img = cv2.imread(image_path)
+        original_img = cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB)
         
         # Dự đoán với model
-        results = model(img_path, conf=args.conf, iou=args.iou, verbose=False)[0]
+        results = model.predict(
+            source=image_path,
+            conf=args.conf,
+            iou=args.iou,
+            device=args.device,
+            verbose=False
+        )[0]
         
-        # Đọc ảnh để hiển thị
-        image = cv2.imread(img_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # Vẽ ảnh gốc
+        axes[i, 0].imshow(original_img)
+        axes[i, 0].set_title(f"Ảnh gốc: {os.path.basename(image_path)}")
+        axes[i, 0].axis("off")
         
-        # Lấy các bounding box, confidence, và class
-        boxes = results.boxes.xyxy.cpu().numpy()
-        confs = results.boxes.conf.cpu().numpy()
-        class_ids = results.boxes.cls.cpu().numpy().astype(int)
-        
-        # Vẽ bounding box lên ảnh
-        for box, conf, class_id in zip(boxes, confs, class_ids):
-            x1, y1, x2, y2 = box.astype(int)
-            class_name = class_names[class_id]
-            
-            # Vẽ bounding box
-            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            
-            # Thêm label
-            label = f"{class_name} {conf:.2f}"
-            cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        
-        # Hiển thị ảnh
-        plt.subplot(np.ceil(num_samples / 2).astype(int), 2, i + 1)
-        plt.imshow(image)
-        plt.title(f"Sample {i+1}")
-        plt.axis('off')
-        
-        # Lưu ảnh với kết quả nhận diện
-        output_path = os.path.join(results_dir, f"pred_{img_file}")
-        cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        # Vẽ ảnh với kết quả dự đoán
+        plot_img = results.plot()
+        plot_img = cv2.cvtColor(plot_img, cv2.COLOR_BGR2RGB)
+        axes[i, 1].imshow(plot_img)
+        axes[i, 1].set_title(f"Dự đoán")
+        axes[i, 1].axis("off")
     
     plt.tight_layout()
-    plt.savefig(os.path.join(results_dir, 'predictions.png'))
+    viz_path = os.path.join(args.output, 'sample_predictions.png')
+    plt.savefig(viz_path)
     plt.close()
     
-    print(f"Đã lưu mẫu kết quả nhận diện vào {results_dir}/predictions.png")
+    print(f"Đã lưu ảnh trực quan mẫu vào {viz_path}")
 
-def plot_per_class_metrics(metrics, class_names, save_path='per_class_metrics.png'):
-    """Vẽ biểu đồ các metrics theo từng lớp"""
-    if not hasattr(metrics, 'per_class') or metrics.per_class is None:
-        print("Không có dữ liệu metrics theo từng lớp")
-        return
+def save_report(metrics, class_names, output_dir):
+    """Lưu báo cáo đánh giá"""
+    report_path = os.path.join(output_dir, 'evaluation_report.txt')
     
-    # Trích xuất các metrics theo lớp
-    precision = metrics.per_class['precision']
-    recall = metrics.per_class['recall']
-    f1 = 2 * (precision * recall) / (precision + recall + 1e-16)
+    with open(report_path, 'w') as f:
+        f.write("BÁO CÁO ĐÁNH GIÁ MÔ HÌNH YOLOv12\n")
+        f.write("="*50 + "\n\n")
+        
+        f.write("Metrics tổng quát:\n")
+        f.write(f"mAP50-95: {metrics.box.map:.4f}\n")
+        f.write(f"mAP50: {metrics.box.map50:.4f}\n")
+        f.write(f"mAP75: {metrics.box.map75:.4f}\n")
+        f.write(f"Precision: {metrics.box.mp:.4f}\n")
+        f.write(f"Recall: {metrics.box.mr:.4f}\n\n")
+        
+        f.write("Thông tin từng lớp:\n")
+        for i, class_name in enumerate(class_names):
+            f.write(f"Class {i} ({class_name}):\n")
+            # Kiểm tra xem metrics cho lớp này có tồn tại không
+            if hasattr(metrics.by_class, 'ap50') and i < len(metrics.by_class.ap50):
+                f.write(f"  - AP50: {metrics.by_class.ap50[i]:.4f}\n")
+                f.write(f"  - Precision: {metrics.by_class.p[i]:.4f}\n")
+                f.write(f"  - Recall: {metrics.by_class.r[i]:.4f}\n")
+            else:
+                f.write(f"  - Không có thông tin metrics cho lớp này\n")
+        
+        f.write("\nLưu ý: Kết quả có thể thay đổi tùy thuộc vào cấu hình và ngưỡng được sử dụng.\n")
     
-    # Tạo DataFrame
-    df = pd.DataFrame({
-        'Class': class_names[:len(precision)],
-        'Precision': precision,
-        'Recall': recall,
-        'F1-Score': f1
-    })
-    
-    # Sắp xếp theo F1-score
-    df = df.sort_values('F1-Score', ascending=False)
-    
-    # Vẽ biểu đồ
-    plt.figure(figsize=(15, 10))
-    
-    # Chỉ hiển thị top 20 class để dễ nhìn
-    top_df = df.head(20)
-    
-    x = np.arange(len(top_df))
-    width = 0.25
-    
-    plt.bar(x - width, top_df['Precision'], width=width, label='Precision')
-    plt.bar(x, top_df['Recall'], width=width, label='Recall')
-    plt.bar(x + width, top_df['F1-Score'], width=width, label='F1-Score')
-    
-    plt.xlabel('Class')
-    plt.ylabel('Score')
-    plt.title('Per-class Evaluation Metrics (Top 20)')
-    plt.xticks(x, top_df['Class'], rotation=90)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(save_path)
-    plt.close()
-    
-    print(f"Đã lưu biểu đồ metrics theo từng lớp vào {save_path}")
-    
-    # Lưu bảng metrics đầy đủ vào CSV
-    df.to_csv('eval_results/per_class_metrics.csv', index=False)
-    print("Đã lưu metrics theo từng lớp vào eval_results/per_class_metrics.csv")
+    print(f"Đã lưu báo cáo đánh giá vào {report_path}")
 
 def main():
     """Hàm chính"""
     args = parse_args()
-    
-    # Tạo thư mục lưu kết quả đánh giá
-    os.makedirs(args.output_dir, exist_ok=True)
-    
-    # Đánh giá model
-    metrics = validate_model(args)
-    
-    # Tải tên các lớp
-    class_names = load_class_names(args.data)
-    
-    # Vẽ ma trận nhầm lẫn
-    plot_confusion_matrix(metrics, class_names, save_path=os.path.join(args.output_dir, 'confusion_matrix.png'))
-    
-    # Vẽ biểu đồ metrics theo từng lớp
-    plot_per_class_metrics(metrics, class_names, save_path=os.path.join(args.output_dir, 'per_class_metrics.png'))
-    
-    # Hiển thị một số kết quả nhận diện
-    if args.visualize:
-        visualize_predictions(args, args.num_samples)
-    
-    print("\nĐánh giá mô hình hoàn tất!")
+    validate(args)
 
 if __name__ == "__main__":
     main() 

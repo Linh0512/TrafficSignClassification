@@ -16,10 +16,10 @@ sys.path.insert(0, root_dir)
 
 def parse_args():
     """Xử lý các đối số dòng lệnh"""
-    parser = argparse.ArgumentParser(description='Dự đoán biển báo giao thông bằng mô hình YOLOv8')
+    parser = argparse.ArgumentParser(description='Dự đoán biển báo giao thông bằng mô hình YOLOv12')
     parser.add_argument('--model', type=str, required=True, help='Đường dẫn đến model đã huấn luyện (*.pt)')
     parser.add_argument('--source', type=str, required=True, help='Đường dẫn đến ảnh hoặc thư mục chứa ảnh cần dự đoán')
-    parser.add_argument('--data', type=str, default=os.path.join(root_dir, 'data/dataset/data.yaml'), help='File dữ liệu yaml')
+    parser.add_argument('--data', type=str, default=os.path.join(root_dir, 'data/data.yaml'), help='File dữ liệu yaml')
     parser.add_argument('--conf', type=float, default=0.25, help='Ngưỡng tin cậy')
     parser.add_argument('--iou', type=float, default=0.7, help='Ngưỡng IoU cho NMS')
     parser.add_argument('--device', type=str, default='', help='cuda device (0, 1, ...) hoặc cpu')
@@ -47,128 +47,101 @@ def parse_args():
         
     return args
 
-def load_class_names(data_yaml):
-    """Tải tên các lớp từ file YAML"""
+def load_classes(data_yaml):
+    """Tải danh sách lớp từ file yaml"""
     with open(data_yaml, 'r') as f:
         data = yaml.safe_load(f)
-    class_names = data['names']
-    return class_names
+    return data['names']
 
-def predict_and_draw(model, image_path, class_names, conf_thres, iou_thres, device, output_dir, view_img, save_txt, save_conf):
-    """Dự đoán và vẽ bounding box lên ảnh"""
-    # Tải ảnh
-    image = cv2.imread(image_path)
-    if image is None:
-        print(f"Không thể đọc ảnh từ {image_path}")
+def predict(args):
+    """Thực hiện dự đoán bằng YOLOv12"""
+    # Kiểm tra đầu vào
+    if not os.path.exists(args.model):
+        print(f"Lỗi: Không tìm thấy model tại {args.model}")
+        return
+
+    if not os.path.exists(args.source):
+        print(f"Lỗi: Không tìm thấy nguồn ảnh tại {args.source}")
+        return
+
+    # Tải danh sách lớp
+    classes = load_classes(args.data)
+    print(f"Đã tải {len(classes)} lớp từ {args.data}")
+    
+    # Kiểm tra và tạo thư mục đầu ra
+    os.makedirs(args.output, exist_ok=True)
+    
+    # Thiết lập device
+    device = args.device
+    if device == '':
+        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    print(f"Sử dụng device: {device}")
+    
+    # Tải model
+    try:
+        model = YOLO(args.model)
+        print(f"Đã tải model từ {args.model}")
+    except Exception as e:
+        print(f"Lỗi khi tải model: {e}")
         return
     
-    # Dự đoán với model
-    results = model(image_path, conf=conf_thres, iou=iou_thres, device=device)[0]
-    
-    # Lấy thông tin dự đoán
-    boxes = results.boxes.xyxy.cpu().numpy()
-    confs = results.boxes.conf.cpu().numpy()
-    class_ids = results.boxes.cls.cpu().numpy().astype(int)
-    
-    # Tạo kết quả ảnh
-    image_result = image.copy()
-    
-    # Vẽ bounding box lên ảnh
-    for box, conf, class_id in zip(boxes, confs, class_ids):
-        x1, y1, x2, y2 = box.astype(int)
-        class_name = class_names[class_id]
+    # Thực hiện dự đoán
+    try:
+        print(f"Dự đoán từ nguồn: {args.source}")
+        results = model.predict(
+            source=args.source,
+            conf=args.conf,
+            iou=args.iou,
+            device=device,
+            save_txt=args.save_txt,
+            save_conf=args.save_conf,
+            show=args.view_img,
+            project=args.output,
+            name='predictions',
+            exist_ok=True,
+            save=True  # Lưu kết quả
+        )
         
-        # Vẽ bounding box
-        cv2.rectangle(image_result, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        print(f"Kết quả dự đoán đã được lưu vào {os.path.join(args.output, 'predictions')}")
         
-        # Thêm label với ngưỡng tin cậy
-        label = f"{class_name} {conf:.2f}"
-        cv2.putText(image_result, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        # Phân tích kết quả (tuỳ chọn)
+        analyze_results(results, classes)
+        
+    except Exception as e:
+        print(f"Lỗi khi thực hiện dự đoán: {e}")
+        
+def analyze_results(results, classes):
+    """Phân tích kết quả dự đoán"""
+    class_count = {}
+    total_objects = 0
     
-    # Lưu kết quả ảnh
-    file_name = os.path.basename(image_path)
-    output_path = os.path.join(output_dir, file_name)
-    cv2.imwrite(output_path, image_result)
+    for r in results:
+        # Lấy thông tin về các đối tượng được phát hiện
+        boxes = r.boxes
+        for box in boxes:
+            cls_id = int(box.cls.item())
+            cls_name = classes[cls_id]
+            conf = box.conf.item()
+            
+            # Cập nhật số lượng
+            if cls_name in class_count:
+                class_count[cls_name] += 1
+            else:
+                class_count[cls_name] = 1
+            
+            total_objects += 1
     
-    # Hiển thị ảnh nếu được yêu cầu
-    if view_img:
-        cv2.imshow('Result', image_result)
-        cv2.waitKey(0)
-    
-    # Lưu kết quả dưới dạng văn bản nếu được yêu cầu
-    if save_txt:
-        txt_path = os.path.join(output_dir, f"{os.path.splitext(file_name)[0]}.txt")
-        with open(txt_path, 'w') as f:
-            for box, conf, class_id in zip(boxes, confs, class_ids):
-                x1, y1, x2, y2 = box
-                # Format: <class_id> <x1> <y1> <x2> <y2> [<conf>]
-                line = f"{class_id} {x1} {y1} {x2} {y2}"
-                if save_conf:
-                    line += f" {conf}"
-                f.write(line + '\n')
-    
-    return image_result, len(boxes)
+    if total_objects > 0:
+        print(f"\nĐã phát hiện tổng cộng {total_objects} đối tượng:")
+        for cls_name, count in class_count.items():
+            print(f"  - {cls_name}: {count} ({count/total_objects*100:.1f}%)")
+    else:
+        print("Không phát hiện đối tượng nào.")
 
 def main():
     """Hàm chính"""
     args = parse_args()
-    
-    # Tạo thư mục lưu kết quả
-    os.makedirs(args.output, exist_ok=True)
-    
-    # Tải model
-    model = YOLO(args.model)
-    
-    # Tải thông tin các class
-    class_names = load_class_names(args.data)
-    
-    # Kiểm tra device
-    device = args.device
-    if device == '':
-        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    
-    print(f"Dự đoán trên device: {device}")
-    
-    # Kiểm tra nguồn đầu vào
-    source = args.source
-    if os.path.isfile(source):
-        # Dự đoán trên một ảnh
-        image_paths = [source]
-    elif os.path.isdir(source):
-        # Dự đoán trên thư mục ảnh
-        image_paths = [os.path.join(source, f) for f in os.listdir(source) 
-                     if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif'))]
-    else:
-        print(f"Nguồn đầu vào không hợp lệ: {source}")
-        return
-    
-    if not image_paths:
-        print(f"Không tìm thấy ảnh trong {source}")
-        return
-    
-    print(f"Tìm thấy {len(image_paths)} ảnh để dự đoán")
-    
-    # Dự đoán trên từng ảnh
-    total_objects = 0
-    for image_path in image_paths:
-        print(f"Dự đoán trên ảnh: {image_path}")
-        _, num_objects = predict_and_draw(
-            model=model,
-            image_path=image_path,
-            class_names=class_names,
-            conf_thres=args.conf,
-            iou_thres=args.iou,
-            device=device,
-            output_dir=args.output,
-            view_img=args.view_img,
-            save_txt=args.save_txt,
-            save_conf=args.save_conf
-        )
-        total_objects += num_objects
-    
-    print(f"\nĐã hoàn thành dự đoán trên {len(image_paths)} ảnh")
-    print(f"Tổng số đối tượng đã phát hiện: {total_objects}")
-    print(f"Kết quả đã được lưu vào thư mục: {args.output}")
+    predict(args)
 
 def predict_on_video(args):
     """Dự đoán trên video"""
@@ -176,7 +149,7 @@ def predict_on_video(args):
     model = YOLO(args.model)
     
     # Tải thông tin các class
-    class_names = load_class_names(args.data)
+    class_names = load_classes(args.data)
     
     # Kiểm tra device
     device = args.device
