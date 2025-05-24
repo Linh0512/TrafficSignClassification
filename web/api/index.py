@@ -9,13 +9,7 @@ sys.path.insert(0, parent_dir)
 from app import app
 
 # Export app cho Vercel
-# Vercel sẽ tìm kiếm biến 'app' hoặc hàm 'handler'
-def handler(request):
-    return {
-        'statusCode': 200,
-        'headers': {'Content-Type': 'application/json'},
-        'body': '{"message": "Hello from Vercel!", "status": "working"}'
-    }
+handler = app
 
 # Đảm bảo app sẵn sàng
 if __name__ == "__main__":
