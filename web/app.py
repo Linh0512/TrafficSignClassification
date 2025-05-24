@@ -168,7 +168,7 @@ class ModelManager:
     def __init__(self):
         self.model = None
         # Đường dẫn mặc định đến model YOLOv12 đã train
-        self.model_path = os.path.join(root_dir, "runs", "train", "traffic_sign_detection_yolo12", "weights", "best.pt")
+        self.model_path = os.path.join(root_dir, "models", "best_yolo12.pt")
         # Đường dẫn dự phòng nếu không tìm thấy model đã train
         self.backup_model_path = os.path.join(root_dir, "models", "yolo12n.pt")
         
